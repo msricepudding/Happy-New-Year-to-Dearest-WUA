@@ -13,9 +13,9 @@
 </head>
 <body>
     <div id="start-screen">
-        <button id="start-btn">点击开启 2026 记忆</button>
+        <button id="start-btn">开启 2026 跨年记忆</button>
     </div>
-    <div id="hint">长按屏幕 - 释放爱心</div>
+    <div id="hint">长按屏幕 - 释放回忆</div>
 
     <script type="importmap">
         { "imports": { "three": "https://fastly.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -34,15 +34,16 @@
 
             renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             document.body.appendChild(renderer.domElement);
 
             heartGroup = new THREE.Group();
             scene.add(heartGroup);
-            scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+            scene.add(new THREE.AmbientLight(0xffffff, 1.8)); // 提高亮度确保照片清晰
 
-            // 创建照片（即便图挂了，也会显示玫瑰金方块）
             const loader = new THREE.TextureLoader();
+            
+            // 21张照片循环
             for (let i = 0; i < 21; i++) {
                 const t = (i / 21) * Math.PI * 2;
                 const pos = new THREE.Vector3(
@@ -52,21 +53,24 @@
                 );
                 
                 const group = new THREE.Group();
-                const photoGeo = new THREE.PlaneGeometry(4, 5.5);
-                const frameGeo = new THREE.BoxGeometry(4.2, 5.7, 0.1);
-                const frameMat = new THREE.MeshStandardMaterial({ color: 0xB76E79, metalness: 0.7 });
+                const photoMat = new THREE.MeshStandardMaterial({ color: 0x222222 }); // 默认底色
+                const photoMesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 5.5), photoMat);
                 
-                // 默认占位色
-                const photoMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-                const photoMesh = new THREE.Mesh(photoGeo, photoMat);
-                
-                // 异步加载真实图
-                loader.load(`./photos/photo_${i}.jpg`, (tex) => {
-                    photoMesh.material.map = tex;
-                    photoMesh.material.needsUpdate = true;
-                });
+                const frameMat = new THREE.MeshStandardMaterial({ color: 0xB76E79, metalness: 0.6 });
+                const frameMesh = new THREE.Mesh(new THREE.BoxGeometry(4.2, 5.7, 0.1), frameMat);
 
-                group.add(photoMesh, new THREE.Mesh(frameGeo, frameMat));
+                // --- 关键修改：直接加载根目录无后缀文件 ---
+                loader.load(`photo_${i}`, 
+                    (tex) => {
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                        photoMesh.material.map = tex;
+                        photoMesh.material.needsUpdate = true;
+                    },
+                    undefined,
+                    (err) => console.error(`无法加载 photo_${i}`)
+                );
+
+                group.add(photoMesh, frameMesh);
                 group.position.copy(pos);
                 group.lookAt(0, 0, 10);
                 
@@ -74,20 +78,20 @@
                     mesh: group,
                     homePos: pos.clone(),
                     homeRot: group.quaternion.clone(),
-                    targetPos: new THREE.Vector3((Math.random()-0.5)*80, (Math.random()-0.5)*80, (Math.random()-0.5)*40),
-                    targetRot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random()*5, Math.random()*5, Math.random()*5))
+                    targetPos: new THREE.Vector3((Math.random()-0.5)*75, (Math.random()-0.5)*75, (Math.random()-0.5)*40),
+                    targetRot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random()*4, Math.random()*4, Math.random()*4))
                 });
                 heartGroup.add(group);
             }
 
-            // 绑定交互
-            const startInteraction = (e) => { e.preventDefault(); isExploded = true; };
-            const stopInteraction = (e) => { e.preventDefault(); isExploded = false; };
+            // 交互绑定
+            const startX = (e) => { isExploded = true; };
+            const stopX = (e) => { isExploded = false; };
 
-            window.addEventListener('mousedown', startInteraction);
-            window.addEventListener('mouseup', stopInteraction);
-            window.addEventListener('touchstart', startInteraction, { passive: false });
-            window.addEventListener('touchend', stopInteraction, { passive: false });
+            window.addEventListener('mousedown', startX);
+            window.addEventListener('mouseup', stopX);
+            window.addEventListener('touchstart', (e) => { e.preventDefault(); startX(); }, { passive: false });
+            window.addEventListener('touchend', (e) => { e.preventDefault(); stopX(); }, { passive: false });
 
             animate();
         }
@@ -95,10 +99,10 @@
         function animate() {
             requestAnimationFrame(animate);
             photos.forEach(p => {
-                const targetP = isExploded ? p.targetPos : p.homePos;
-                const targetR = isExploded ? p.targetRot : p.homeRot;
-                p.mesh.position.lerp(targetP, 0.1);
-                p.mesh.quaternion.slerp(targetR, 0.1);
+                const tP = isExploded ? p.targetPos : p.homePos;
+                const tR = isExploded ? p.targetRot : p.homeRot;
+                p.mesh.position.lerp(tP, 0.1);
+                p.mesh.quaternion.slerp(tR, 0.1);
             });
             heartGroup.rotation.y += 0.005;
             renderer.render(scene, camera);
