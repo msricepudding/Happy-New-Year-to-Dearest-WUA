@@ -7,22 +7,20 @@
     <style>
         body { margin: 0; background: #000205; overflow: hidden; font-family: 'Segoe UI', sans-serif; -webkit-user-select: none; }
         #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, #1a0a0d 0%, #000 100%); color: #e5b39b; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 999; }
-        #start-btn { padding: 18px 50px; border: 1px solid #e5b39b; background: transparent; color: #e5b39b; font-size: 18px; cursor: pointer; border-radius: 50px; letter-spacing: 2px; transition: 0.3s; }
-        #start-btn:hover { background: #e5b39b; color: #000; box-shadow: 0 0 30px #e5b39b; }
+        #start-btn { padding: 18px 50px; border: 1px solid #e5b39b; background: transparent; color: #e5b39b; font-size: 18px; cursor: pointer; border-radius: 50px; letter-spacing: 2px; transition: 0.3s; box-shadow: 0 0 15px rgba(229, 179, 155, 0.2); }
         #info { position: fixed; top: 40px; width: 100%; text-align: center; color: #e5b39b; pointer-events: none; z-index: 100; }
-        h1 { font-weight: 200; letter-spacing: 8px; margin: 0; text-shadow: 0 0 20px #e5b39b; }
+        h1 { font-weight: 200; letter-spacing: 8px; margin: 0; text-shadow: 0 0 20px #e5b39b; font-size: 28px; }
     </style>
 </head>
 <body>
     <div id="start-screen">
         <h2 style="margin-bottom: 30px; font-weight: 200; letter-spacing: 5px;">2026 MEMORY DRIVE</h2>
-        <button id="start-btn">开启跨年惊喜</button>
-        <p style="margin-top: 20px; font-size: 12px; opacity: 0.5;">建议使用手机浏览器访问</p>
+        <button id="start-btn">开启跨年作业批改</button>
     </div>
     
     <div id="info">
         <h1>LOVE YOU 3000</h1>
-        <p style="font-size: 12px; opacity: 0.7; margin-top: 10px;">长按屏幕 释放璀璨回忆</p>
+        <p style="font-size: 12px; opacity: 0.7; margin-top: 10px;">长按屏幕 查收作业</p>
     </div>
 
     <script type="importmap">
@@ -43,7 +41,6 @@
         const PHOTO_COUNT = 21;
 
         function init() {
-            // --- 1. 场景与相机 ---
             scene = new THREE.Scene();
             scene.fog = new THREE.FogExp2(0x000205, 0.015);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -55,20 +52,17 @@
             renderer.toneMapping = THREE.ReinhardToneMapping;
             document.body.appendChild(renderer.domElement);
 
-            // --- 2. 辉光后期处理 ---
             const renderScene = new RenderPass(scene, camera);
             const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.8, 0.4, 0.85);
             composer = new EffectComposer(renderer);
             composer.addPass(renderScene);
             composer.addPass(bloomPass);
 
-            // --- 3. 密集群星背景 ---
             createStars();
 
-            // --- 4. 核心爱心组 ---
             heartGroup = new THREE.Group();
             scene.add(heartGroup);
-            scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+            scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
             const loader = new THREE.TextureLoader();
             
@@ -90,18 +84,13 @@
                     new THREE.MeshStandardMaterial({ color: 0xB76E79, metalness: 0.9, roughness: 0.1 })
                 );
 
-                // --- 自动探测路径逻辑 ---
-                const pathsToTry = [`photo_${i}`, `photo_${i}.jpg`, `photos/photo_${i}.jpg` ];
-                const tryLoad = (index) => {
-                    if (index >= pathsToTry.length) return;
-                    loader.load(pathsToTry[index], (tex) => {
-                        tex.colorSpace = THREE.SRGBColorSpace;
-                        photoMesh.material.map = tex;
-                        photoMesh.material.color.set(0xffffff);
-                        photoMesh.material.needsUpdate = true;
-                    }, undefined, () => tryLoad(index + 1));
-                };
-                tryLoad(0);
+                // --- 锁定 photo_i.jpg 加载 ---
+                loader.load(`photo_${i}.jpg`, (tex) => {
+                    tex.colorSpace = THREE.SRGBColorSpace;
+                    photoMesh.material.map = tex;
+                    photoMesh.material.color.set(0xffffff);
+                    photoMesh.material.needsUpdate = true;
+                });
 
                 group.add(photoMesh, frameMesh);
                 group.position.copy(pos);
@@ -111,7 +100,7 @@
                     mesh: group,
                     homePos: pos.clone(),
                     homeRot: group.quaternion.clone(),
-                    targetPos: new THREE.Vector3((Math.random()-0.5)*90, (Math.random()-0.5)*90, (Math.random()-0.5)*50),
+                    targetPos: new THREE.Vector3((Math.random()-0.5)*95, (Math.random()-0.5)*95, (Math.random()-0.5)*50),
                     targetRot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random()*6, Math.random()*6, Math.random()*6))
                 });
                 heartGroup.add(group);
@@ -125,22 +114,20 @@
             const starGeo = new THREE.BufferGeometry();
             const starPos = [];
             const starColors = [];
-            for (let i = 0; i < 6000; i++) { // 密集星群
-                starPos.push((Math.random()-0.5)*300, (Math.random()-0.5)*300, (Math.random()-0.5)*300);
-                const brightness = 0.5 + Math.random() * 0.5;
-                starColors.push(brightness, brightness, brightness);
+            for (let i = 0; i < 6000; i++) {
+                starPos.push((Math.random()-0.5)*400, (Math.random()-0.5)*400, (Math.random()-0.5)*400);
+                const b = 0.5 + Math.random() * 0.5;
+                starColors.push(b, b, b);
             }
             starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
             starGeo.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
-            const starMat = new THREE.PointsMaterial({ size: 0.4, vertexColors: true, transparent: true, opacity: 0.8 });
-            stars = new THREE.Points(starGeo, starMat);
+            stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 0.5, vertexColors: true, transparent: true, opacity: 0.8 }));
             scene.add(stars);
         }
 
         function setupInteractions() {
             const start = (e) => { if(e.cancelable) e.preventDefault(); isExploded = true; };
-            const stop = (e) => { isExploded = false; };
-            
+            const stop = () => { isExploded = false; };
             window.addEventListener('mousedown', start);
             window.addEventListener('mouseup', stop);
             window.addEventListener('touchstart', start, { passive: false });
@@ -150,22 +137,16 @@
         function animate() {
             requestAnimationFrame(animate);
             const time = performance.now() * 0.001;
-            
             photos.forEach(p => {
                 const tP = isExploded ? p.targetPos : p.homePos;
                 const tR = isExploded ? p.targetRot : p.homeRot;
-                // 爆炸时放大 1.8 倍，缩回时恢复 1 倍
-                const tS = isExploded ? 1.8 : 1.0;
-                
+                const tS = isExploded ? 1.8 : 1.0; // 爆炸放大 1.8 倍
                 p.mesh.position.lerp(tP, 0.08);
                 p.mesh.quaternion.slerp(tR, 0.08);
                 p.mesh.scale.lerp(new THREE.Vector3(tS, tS, tS), 0.1);
             });
-
             stars.rotation.y += 0.0005;
-            stars.rotation.x += 0.0002;
-            heartGroup.rotation.y += 0.003;
-            
+            heartGroup.rotation.y += 0.004;
             composer.render();
         }
 
