@@ -6,37 +6,24 @@
     <title>2026 跨年记忆 - 3D Heart</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: #e5b39b; }
-        #loading { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #000; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; z-index: 100; 
-        }
-        #status-text { margin-bottom: 20px; font-size: 18px; letter-spacing: 2px; }
-        #start-btn { 
-            display: none; padding: 12px 30px; background: transparent; 
-            color: #e5b39b; border: 1px solid #e5b39b; cursor: pointer;
-            font-size: 16px; transition: 0.3s;
-        }
-        #start-btn:hover { background: #e5b39b; color: #000; }
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
+        #status-text { margin-bottom: 20px; font-size: 16px; letter-spacing: 2px; text-align: center; padding: 0 20px; }
+        #start-btn { display: none; padding: 12px 30px; background: transparent; color: #e5b39b; border: 1px solid #e5b39b; cursor: pointer; font-size: 16px; }
         #info { position: absolute; top: 20px; width: 100%; text-align: center; pointer-events: none; z-index: 10; }
-        #webcam-container { position: absolute; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 1px solid #b76e79; opacity: 0.6; transform: scaleX(-1); }
+        #webcam-container { position: absolute; bottom: 10px; left: 10px; width: 120px; height: 90px; border: 1px solid #b76e79; opacity: 0.4; transform: scaleX(-1); pointer-events: none; }
         video { width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
 <body>
     <div id="loading">
-        <div id="status-text">正在初始化浪漫引擎...</div>
-        <button id="start-btn">点击开启 2026 跨年记忆</button>
+        <div id="status-text">正在准备 2026 跨年惊喜...</div>
+        <button id="start-btn">开启记忆</button>
     </div>
-
     <div id="info">
-        <h1 style="letter-spacing: 5px; margin-bottom: 5px;">2026 ECHOES OF LOVE</h1>
-        <p>张开手掌爆炸 / 握拳凝聚爱心</p>
+        <h1 style="letter-spacing: 5px; font-size: 24px;">2026 ECHOES OF LOVE</h1>
+        <p id="hint-text">正在初始化交互模式...</p>
     </div>
-
-    <div id="webcam-container">
-        <video id="webcam-video" autoplay playsinline></video>
-    </div>
+    <div id="webcam-container"><video id="webcam-video" autoplay playsinline></video></div>
 
     <script type="importmap">
         {
@@ -55,161 +42,23 @@
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 
-        let scene, camera, renderer, composer, heartGroup;
-        let photos = [];
-        let isExploded = false;
+        let scene, camera, renderer, composer, heartGroup, photos = [];
+        let isExploded = false, isTouchMode = false;
         let cameraTargetRotation = new THREE.Vector2(0, 0);
-        const PHOTO_COUNT = 21; // 更新为21张照片
+        const PHOTO_COUNT = 21; 
 
         const statusText = document.getElementById('status-text');
         const startBtn = document.getElementById('start-btn');
+        const hintText = document.getElementById('hint-text');
         const videoElement = document.getElementById('webcam-video');
 
         async function init() {
+            setupScene();
             try {
-                // 1. 初始化 3D 场景
-                statusText.innerText = "正在构建 3D 空间...";
-                setupScene();
-                
-                // 2. 加载照片
-                statusText.innerText = "正在加载回忆照片 (0/21)...";
+                statusText.innerText = "正在加载回忆照片 (21张)...";
                 await createPhotoHeart();
-
-                // 3. 初始化手势识别
-                statusText.innerText = "正在连接 AI 手势识别...";
-                await setupMediaPipe();
-
-                // 4. 完成加载
-                statusText.innerText = "准备就绪";
-                startBtn.style.display = "block";
-                startBtn.onclick = () => {
-                    document.getElementById('loading').style.display = 'none';
-                    animate();
-                };
-            } catch (err) {
-                statusText.innerText = "加载失败，请刷新页面并允许摄像头权限";
-                console.error(err);
-            }
-        }
-
-        function setupScene() {
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x00050a, 0.012);
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
-            camera.position.z = 45;
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.toneMapping = THREE.ReinhardToneMapping;
-            document.body.appendChild(renderer.domElement);
-
-            const renderPass = new RenderPass(scene, camera);
-            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-            composer = new EffectComposer(renderer);
-            composer.addPass(renderPass);
-            composer.addPass(bloomPass);
-
-            heartGroup = new THREE.Group();
-            scene.add(heartGroup);
-            
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const light = new THREE.PointLight(0xe5b39b, 100);
-            light.position.set(0, 0, 10);
-            scene.add(light);
-        }
-
-        async function createPhotoHeart() {
-            const loader = new THREE.TextureLoader();
-            for (let i = 0; i < PHOTO_COUNT; i++) {
-                const t = (i / PHOTO_COUNT) * Math.PI * 2;
-                const pos = new THREE.Vector3(
-                    16 * Math.pow(Math.sin(t), 3) * 0.45,
-                    (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * 0.45,
-                    (Math.random() - 0.5) * 5
-                );
-
-                const texture = await loader.loadAsync(`./photos/photo_${i}.jpg`);
-                statusText.innerText = `正在加载回忆照片 (${i+1}/21)...`;
                 
-                const group = new THREE.Group();
-                const photo = new THREE.Mesh(
-                    new THREE.PlaneGeometry(4, 5.5),
-                    new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide })
-                );
-                const frame = new THREE.Mesh(
-                    new THREE.BoxGeometry(4.2, 5.7, 0.1),
-                    new THREE.MeshStandardMaterial({ color: 0xB76E79, metalness: 0.8 })
-                );
-                group.add(photo, frame);
-                group.position.copy(pos);
-                group.lookAt(0, 0, 10);
-
-                const data = {
-                    mesh: group,
-                    homePos: pos.clone(),
-                    homeRot: group.quaternion.clone(),
-                    targetPos: new THREE.Vector3((Math.random()-0.5)*80, (Math.random()-0.5)*80, (Math.random()-0.5)*40),
-                    targetRot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random()*5, Math.random()*5, Math.random()*5))
-                };
-                photos.push(data);
-                heartGroup.add(group);
-            }
-        }
-
-        async function setupMediaPipe() {
-            const hands = new Hands({
-                locateFile: (file) => `https://fastly.jsdelivr.net/npm/@mediapipe/hands/${file}`
-            });
-
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7 });
-            hands.onResults(onResults);
-
-            const cameraHelper = new Camera(videoElement, {
-                onFrame: async () => { await hands.send({image: videoElement}); },
-                width: 640, height: 480
-            });
-            await cameraHelper.start();
-        }
-
-        function onResults(results) {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const lm = results.multiHandLandmarks[0];
-                // 视角跟随手部
-                cameraTargetRotation.y = (lm[0].x - 0.5) * -1;
-                cameraTargetRotation.x = (lm[0].y - 0.5) * 0.6;
-
-                // 爆炸逻辑：计算食指和拇指距离
-                const dist = Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
-                isExploded = dist > 0.15;
-            }
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = performance.now() * 0.002;
-
-            photos.forEach(p => {
-                const targetP = isExploded ? p.targetPos : p.homePos;
-                const targetR = isExploded ? p.targetRot : p.homeRot;
-                p.mesh.position.lerp(targetP, 0.08);
-                p.mesh.quaternion.slerp(targetR, 0.08);
-                if(!isExploded) {
-                    const s = 1 + Math.sin(time + p.homePos.x) * 0.03;
-                    p.mesh.scale.set(s, s, s);
-                }
-            });
-
-            camera.rotation.y = THREE.MathUtils.lerp(camera.rotation.y, cameraTargetRotation.y, 0.05);
-            camera.rotation.x = THREE.MathUtils.lerp(camera.rotation.x, cameraTargetRotation.x, 0.05);
-            composer.render();
-        }
-
-        init();
-        window.onresize = () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        };
-    </script>
-</body>
-</html>
+                statusText.innerText = "尝试开启 AI 手势识别...";
+                await setupMediaPipe();
+                hintText.innerText = "张开手掌爆炸 / 握拳凝聚";
+            } catch (err
